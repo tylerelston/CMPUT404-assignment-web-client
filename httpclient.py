@@ -33,7 +33,32 @@ class HTTPResponse(object):
         self.body = body
 
 class HTTPClient(object):
-    #def get_host_port(self,url):
+    def get_host(self, url):
+        print(f'Getting host for {url}')
+        host = url.split(":")[0]
+        print (f'Host of {url} is {host}')
+        return host
+
+    def get_host_port(self, url):
+        print(f'Getting port for {url}')
+        if ":" in url:
+            tempUrl = url.split(":")
+            port = int(tempUrl[-1])
+            print (f'Port of {url} is {port}')
+            return port
+        print (f'Port of {url} is 80')
+        return 80
+
+    def get_remote_ip(self, host):
+        print(f'Getting IP for {host}')
+        try:
+            remote_ip = socket.gethostbyname( host )
+        except socket.gaierror:
+            print ('Hostname could not be resolved. Exiting')
+            sys.exit()
+
+        print (f'Ip address of {host} is {remote_ip}')
+        return remote_ip
 
     def connect(self, host, port):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -41,13 +66,18 @@ class HTTPClient(object):
         return None
 
     def get_code(self, data):
-        return None
+        return int(data.split("\r\n")[0].split(" ")[1])
 
-    def get_headers(self,data):
-        return None
+    def get_headers(self, data):
+        return data.split("\r\n")
 
     def get_body(self, data):
-        return None
+        return data.split("\r\n\r\n")[-1]
+    
+    def get_location(self, headers):
+        for header in headers:
+            if "Location:" in header:
+                return header.split(": ")[-1]
     
     def sendall(self, data):
         self.socket.sendall(data.encode('utf-8'))
@@ -65,11 +95,48 @@ class HTTPClient(object):
                 buffer.extend(part)
             else:
                 done = not part
+        #print(buffer)
         return buffer.decode('utf-8')
 
     def GET(self, url, args=None):
-        code = 500
-        body = ""
+        parsedURL = urllib.parse.urlparse(url)
+        host = self.get_host(parsedURL.netloc)
+        port = self.get_host_port(parsedURL.netloc)
+        ip = self.get_remote_ip(host)
+
+        self.connect(ip, port)
+        payload = f'GET / HTTP/1.0\r\nHost: {host}\r\n\r\n'
+        self.sendall(payload)
+        self.socket.shutdown(socket.SHUT_WR)
+        response = self.recvall(self.socket)
+
+        print("########RESPONSE############")
+        print()
+        print(response)
+        print()
+
+        print("###########RESULT############")
+        headers = self.get_headers(response)
+        code = self.get_code(response)
+        if code == 301:
+            print('301 MOVED')
+            newURL = self.get_location(headers)
+
+            parsedURL = urllib.parse.urlparse(newURL)
+            host = self.get_host(parsedURL.netloc)
+            port = self.get_host_port(parsedURL.netloc)
+            ip = self.get_remote_ip(host)
+
+            self.connect(ip, port)
+            payload = f'GET / HTTP/1.0\r\nHost: {host}\r\n\r\n'
+            self.sendall(payload)
+            self.socket.shutdown(socket.SHUT_WR)
+            response = self.recvall(self.socket)
+            code = self.get_code(response)
+
+        print("code:", code)
+        body = self.get_body(response)
+        print("body:",body)
         return HTTPResponse(code, body)
 
     def POST(self, url, args=None):
