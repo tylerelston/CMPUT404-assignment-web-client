@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # coding: utf-8
 # Copyright 2016 Abram Hindle, https://github.com/tywtyw2002, and https://github.com/treedust
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -24,40 +24,35 @@ import re
 # you may use urllib to encode data appropriately
 import urllib.parse
 
+
 def help():
     print("httpclient.py [GET/POST] [URL]\n")
+
 
 class HTTPResponse(object):
     def __init__(self, code=200, body=""):
         self.code = code
         self.body = body
 
+
 class HTTPClient(object):
     def get_host(self, url):
-        print(f'Getting host for {url}')
         host = url.split(":")[0]
-        print (f'   Host of {url} is {host}')
         return host
 
     def get_host_port(self, url):
-        print(f'Getting port for {url}')
         if ":" in url:
             tempUrl = url.split(":")
             port = int(tempUrl[-1])
-            print (f'   Port of {url} is {port}')
             return port
-        print (f'   Port of {url} is 80')
         return 80
 
     def get_remote_ip(self, host):
-        print(f'Getting IP for {host}')
         try:
-            remote_ip = socket.gethostbyname( host )
+            remote_ip = socket.gethostbyname(host)
         except socket.gaierror:
-            print ('    Hostname could not be resolved. Exiting')
             sys.exit()
 
-        print (f'   Ip address of {host} is {remote_ip}')
         return remote_ip
 
     def connect(self, host, port):
@@ -73,7 +68,7 @@ class HTTPClient(object):
 
     def get_body(self, data):
         return data.split("\r\n\r\n")[-1]
-    
+
     def get_location(self, headers):
         for header in headers:
             if "Location:" in header:
@@ -89,11 +84,11 @@ class HTTPClient(object):
             res += f"{key}={value}"
             if i < len(args.keys()) - 1:
                 res += "&"
-        return f"{res}\r\n"
+        return f"{res}"
 
     def sendall(self, data):
         self.socket.sendall(data.encode('utf-8'))
-        
+
     def close(self):
         self.socket.close()
 
@@ -107,7 +102,6 @@ class HTTPClient(object):
                 buffer.extend(part)
             else:
                 done = not part
-        #print(buffer)
         return buffer.decode('utf-8')
 
     def GET(self, url, args=None):
@@ -125,11 +119,10 @@ class HTTPClient(object):
         self.socket.shutdown(socket.SHUT_WR)
         response = self.recvall(self.socket)
 
+        print("########REQUEST############")
         print(payload)
         print("########RESPONSE############")
-        print()
         print(response)
-        print()
 
         headers = self.get_headers(response)
         code = self.get_code(response)
@@ -154,11 +147,12 @@ class HTTPClient(object):
             print(response)
 
         body = self.get_body(response)
+        self.socket.close()
+
         return HTTPResponse(code, body)
 
     def POST(self, url, args=None):
         parsedURL = urllib.parse.urlparse(url)
-        print(f"POST PARSED URL: {parsedURL}")
         host = self.get_host(parsedURL.netloc)
         port = self.get_host_port(parsedURL.netloc)
         ip = self.get_remote_ip(host)
@@ -167,29 +161,30 @@ class HTTPClient(object):
         strArgs = self.get_args(args)
 
         self.connect(ip, port)
-        payload = f'''POST {path}{query} HTTP/1.0\r\nHost: {host}\r\n\Content-Type: application/x-www-form-urlencoded\r\nContent-Length: {str(len(strArgs))}\r\n\r\n{strArgs}'''
+        payload = f'''POST {path}{query} HTTP/1.0\r\nHost: {host}\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {str(len(strArgs))}\r\n\r\n{strArgs}'''
         print(f"{payload}")
         self.sendall(payload)
         self.socket.shutdown(socket.SHUT_WR)
         response = self.recvall(self.socket)
 
+        print("########REQUEST############")
         print(payload)
         print("########RESPONSE############")
-        print()
         print(response)
-        print()
 
-        headers = self.get_headers(response)
         code = self.get_code(response)
         body = self.get_body(response)
+        self.socket.close()
+
         return HTTPResponse(code, body)
 
     def command(self, url, command="GET", args=None):
         if (command == "POST"):
-            return self.POST( url, args )
+            return self.POST(url, args)
         else:
-            return self.GET( url, args )
-    
+            return self.GET(url, args)
+
+
 if __name__ == "__main__":
     client = HTTPClient()
     command = "GET"
@@ -197,6 +192,6 @@ if __name__ == "__main__":
         help()
         sys.exit(1)
     elif (len(sys.argv) == 3):
-        print(client.command( sys.argv[2], sys.argv[1] ))
+        print(client.command(sys.argv[2], sys.argv[1]))
     else:
-        print(client.command( sys.argv[1] ))
+        print(client.command(sys.argv[1]))
