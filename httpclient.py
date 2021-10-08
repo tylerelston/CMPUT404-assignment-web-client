@@ -78,9 +78,7 @@ class HTTPClient(object):
         res = ""
         if not args:
             return res
-        print(f"ARGS: {args}")
         for i, (key, value) in enumerate(args.items()):
-            print(i, key, value)
             res += f"{key}={value}"
             if i < len(args.keys()) - 1:
                 res += "&"
@@ -103,6 +101,12 @@ class HTTPClient(object):
             else:
                 done = not part
         return buffer.decode('utf-8')
+    def parseResponse(self, response):
+        headers = self.get_headers(response)
+        print(headers[0].split(' ', 1)[1])
+        body = response.split("\r\n\r\n")
+        if len(body) > 1:
+            print(body[-1])
 
     def GET(self, url, args=None):
         parsedURL = urllib.parse.urlparse(url)
@@ -114,20 +118,17 @@ class HTTPClient(object):
 
         self.connect(ip, port)
         payload = f'GET {path}{query} HTTP/1.0\r\nHost: {host}\r\n\r\n'
-        print(f"{payload}")
         self.sendall(payload)
         self.socket.shutdown(socket.SHUT_WR)
         response = self.recvall(self.socket)
 
-        print("########REQUEST############")
-        print(payload)
-        print("########RESPONSE############")
-        print(response)
 
         headers = self.get_headers(response)
         code = self.get_code(response)
+        if code != 301:
+            print(self.parseResponse(response))
+
         if code == 301:
-            print('301 MOVED')
             newURL = self.get_location(headers)
 
             parsedURL = urllib.parse.urlparse(newURL)
@@ -139,12 +140,11 @@ class HTTPClient(object):
 
             self.connect(ip, port)
             payload = f'GET {path}{query} HTTP/1.0\r\nHost: {host}\r\n\r\n'
-            print(payload)
             self.sendall(payload)
             self.socket.shutdown(socket.SHUT_WR)
             response = self.recvall(self.socket)
             code = self.get_code(response)
-            print(response)
+            print(self.parseResponse(response))
 
         body = self.get_body(response)
         self.socket.close()
@@ -162,15 +162,11 @@ class HTTPClient(object):
 
         self.connect(ip, port)
         payload = f'''POST {path}{query} HTTP/1.0\r\nHost: {host}\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {str(len(strArgs))}\r\n\r\n{strArgs}'''
-        print(f"{payload}")
         self.sendall(payload)
         self.socket.shutdown(socket.SHUT_WR)
         response = self.recvall(self.socket)
 
-        print("########REQUEST############")
-        print(payload)
-        print("########RESPONSE############")
-        print(response)
+        print(self.parseResponse(response))
 
         code = self.get_code(response)
         body = self.get_body(response)
